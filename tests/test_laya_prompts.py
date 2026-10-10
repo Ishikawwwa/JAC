@@ -1,6 +1,5 @@
 """Prompt changes must isolate calibration and preserve original native evidence."""
 
-import ast
 import json
 import unittest
 from pathlib import Path
@@ -9,7 +8,6 @@ from test_laya import Agent
 
 from jac import LayaDecider
 from jevcache.decisions import Candidate
-from jevcache.laya_prompt_benchmark import summarize
 from jevcache.laya_prompts import (
     DEFAULT_PROMPT_VERSION,
     PROMPT_VERSIONS,
@@ -19,17 +17,10 @@ from jevcache.laya_prompts import (
 
 
 class PromptTests(unittest.TestCase):
-    def test_v2_questions_match_archived_adapter_exactly(self):
-        source = (Path(__file__).resolve().parents[1]
-                  / "tests/fixtures/laya_v2_adapter.py.txt")
-        tree = ast.parse(source.read_text(encoding="utf-8"))
-        values = {}
-        for node in tree.body:
-            if isinstance(node, ast.Assign):
-                for target in node.targets:
-                    if (isinstance(target, ast.Name)
-                            and target.id in ("_QUESTIONS", "_RULES", "_CRITERIA")):
-                        values[target.id] = ast.literal_eval(node.value)
+    def test_v2_questions_match_frozen_contract(self):
+        source = (Path(__file__).resolve().parent
+                  / "fixtures/reuse_questions.json")
+        values = json.loads(source.read_text(encoding="utf-8"))
         for kind, questions in values["_QUESTIONS"].items():
             expected = {
                 name: {"type": "noul", "instructions": question + values["_RULES"],
@@ -60,27 +51,6 @@ class PromptTests(unittest.TestCase):
         self.assertNotEqual(laya_questions(version=PROMPT_VERSIONS[-1]), questions)
         with self.assertRaises(ValueError):
             laya_questions("unknown")
-
-    def test_quality_summary_excludes_exact_and_records_missed_positives(self):
-        def row(identifier, label, expected, accepted, score):
-            return {"id": identifier, "label": label, "expected_id": expected,
-                    "candidate_id": "a", "accepted": accepted,
-                    "correct": ("a" if accepted else None) == expected, "score": score,
-                    "native_predict_calls": 1, "context_rejections": 0,
-                    "error": None, "elapsed_ms": 10}
-        result = summarize([
-            row("exact", "exact", "a", True, .99),
-            row("true", "positive", "a", True, .99),
-            row("false", "hard_negative", None, True, .99),
-            row("missed", "positive", "a", False, .7),
-        ])
-        self.assertEqual(result["cases"], 4)
-        self.assertEqual(result["semantic_cases"], 3)
-        self.assertEqual(result["true_semantic_accepts"], 1)
-        self.assertEqual(result["false_semantic_accepts"], 1)
-        self.assertEqual(result["semantic_precision"], .5)
-        self.assertEqual(result["positive_semantic_recall"], .5)
-        self.assertEqual(result["missed_positive_ids"], ["missed"])
 
 
 class NativePromptTests(unittest.IsolatedAsyncioTestCase):

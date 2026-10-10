@@ -42,7 +42,7 @@ ask = cache.wrap(existing_llm_call)
 Choose `retrieval="embeddings"` and supply an `embedder` for vector retrieval.
 Local **JevK5** and **Laya** adapters are also available. Semantic decisions require
 labeled calibration observations; until then JAC uses exact caching.
-See the [quickstart](QUICKSTART.md) and [H100 / JevK5 setup](JEVK5.md).
+See the [quickstart](docs/usage.md) and [H100 / JevK5 setup](docs/jevk5.md).
 
 For a race, use `JAC(mode="parallel", ...)`. A miss continues generating without
 waiting for lookup. Generation may already be billable on a hit; cancellation
@@ -58,9 +58,12 @@ average latency **28%** and generation calls **30%**.
 This is a calculation, not a measured JAC benchmark or an industry-wide latency
 average. JevK5's author reports approximately 13 ms per short H100 decision using
 its optimized CUDA runtime; total cache latency includes additional work.
-[Assumptions and calculations](PERFORMANCE.md).
+[Assumptions and calculations](docs/performance.md).
 
 ## Try it
+
+Three runnable examples live in `examples/`; hosted and H100 configs are in
+`examples/configs/`. Setup and measurement guides are in `docs/`.
 
 ```bash
 python -m jac evaluate --offline     # Token-free functionality fixtures.
@@ -71,4 +74,4 @@ JAC v0.1 is experimental. Use scope, dependency revisions, TTLs and application
 validation for your data. Decision confidence alone does not establish correct
 reuse. Streaming and unsupported response shapes pass through to the provider.
 
-[Usage](QUICKSTART.md) · [Design](DESIGN.md) · [Evaluation](BENCHMARK.md) · [MIT license](LICENSE)
+[Usage](docs/usage.md) · [Evaluation](docs/testing.md) · [MIT license](LICENSE)

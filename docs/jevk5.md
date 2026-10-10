@@ -53,17 +53,17 @@ operation may finish before `drain()` returns.
 This adapter has protocol and lifecycle tests using injected runtimes. JAC has
 not measured an H100 deployment. [Upstream H100 inference measurements](https://github.com/allebee/jevk5#results-on-jevbenchs-public-items)
 use its optimized runtime; they are not end-to-end JAC latency guarantees.
-[Performance projections](PERFORMANCE.md) make the deployment assumptions explicit.
+[Performance projections](performance.md) make the deployment assumptions explicit.
 
 ## Run with a remote generator
 
-Edit `jac.remote.json` to supply your remote model ID and API base URL. Copy
-`.env.example` to `.env` and fill `REMOTE_MODEL_API_KEY`. No hosted decision token
+Edit `examples/configs/h100.json` to supply your remote model ID and API base URL. Copy
+`examples/configs/.env.example` to `examples/configs/.env` and fill `REMOTE_MODEL_API_KEY`. No hosted decision token
 is required when using the local CUDA adapter.
 
 ```bash
-python -m jac evaluate --config jac.remote.json --retrieval bm25 --mode cache_first
-python -m jac evaluate --config jac.remote.json --retrieval both --mode both
+python -m jac evaluate --config examples/configs/h100.json --retrieval bm25 --mode cache_first
+python -m jac evaluate --config examples/configs/h100.json --retrieval both --mode both
 ```
 
 The generator is real; calls consume provider credits. The evaluation uses a small
@@ -107,5 +107,4 @@ bf16 path. The H100 upstream figures should not be attributed to llama.cpp.
 
 Both backends support BM25 or embeddings, cache-first or parallel execution, and
 the optional versioned reuse prompts. Prompt names beginning `laya-reuse-*` select
-shared wording, not a particular model. Benchmark runners are described in
-[BENCHMARK.md](BENCHMARK.md).
+shared wording, not a particular model. See [testing and evaluation](testing.md).

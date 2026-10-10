@@ -25,7 +25,7 @@ long prompts, cold starts, queueing and cross-region calls can exceed it.
 JAC provides `JevK5CudaDecider` for this upstream runtime, plus a separate
 `JevK5Decider` for GGUF/llama.cpp. CUDA adapter protocol tests use injected runtimes;
 an H100 deployment and its end-to-end latency have not been benchmarked by JAC.
-See [setup](JEVK5.md).
+See [setup](jevk5.md).
 
 ## Cache-first calculation
 

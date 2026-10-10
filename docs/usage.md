@@ -92,7 +92,7 @@ requirements. Model confidence is not a measured hit probability. The savings
 gate compares observed valid-hit rate times avoided generation latency with
 retrieval and decision overhead. Configuration changes require new observations.
 
-For local decisions, see [JevK5 on H100 or GGUF](JEVK5.md). Optional Laya uses
+For local decisions, see [JevK5 on H100 or GGUF](jevk5.md). Optional Laya uses
 `python -m pip install -e ".[laya]"` and `LayaDecider(device="cuda")`.
 
 ## Choose BM25 or embeddings
@@ -164,17 +164,17 @@ records. Concurrent identical requests coalesce within one JAC instance.
 
 ## Run live measurements
 
-Copy `.env.example` to `.env`. For hosted Jev, fill `OPENAI_API_KEY` and
-`TYPESAFE_API_KEY`, then edit `jac.cloud.json` for your endpoints and models:
+Copy `examples/configs/.env.example` to `examples/configs/.env`. For hosted Jev, fill `OPENAI_API_KEY` and
+`TYPESAFE_API_KEY`, then edit `examples/configs/hosted.json` for your endpoints and models:
 
 ```bash
-python -m jac evaluate --config jac.cloud.json --retrieval bm25 --mode cache_first
-python -m jac evaluate --config jac.cloud.json --retrieval both --mode both
+python -m jac evaluate --config examples/configs/hosted.json --retrieval bm25 --mode cache_first
+python -m jac evaluate --config examples/configs/hosted.json --retrieval both --mode both
 ```
 
 For an H100 decider plus any remote compatible generator, edit the generation
-model/base URL in `jac.remote.json`, set `REMOTE_MODEL_API_KEY`, and follow
-[JevK5 setup](JEVK5.md). The runner loads an adjacent `.env` without overriding
+model/base URL in `examples/configs/h100.json`, set `REMOTE_MODEL_API_KEY`, and follow
+[JevK5 setup](jevk5.md). The runner loads an adjacent `.env` without overriding
 existing environment variables. Live commands incur provider charges. The small
 fact workload has independent labels and separate calibration; it is a functional
-evaluation, not a production accuracy certificate. See [evaluation](BENCHMARK.md).
+evaluation, not a production accuracy certificate. See [evaluation](testing.md).
