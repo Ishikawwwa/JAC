@@ -1,0 +1,23 @@
+{
+  "generation": {
+    "provider": "transformers",
+    "model": "Qwen/Qwen2.5-0.5B-Instruct",
+    "revision": "7ae557604adf67be50417f59c2c2f167def9a775",
+    "device": "cuda",
+    "max_new_tokens": 64
+  },
+  "decision": {
+    "provider": "laya",
+    "model": "convaiinnovations/laya",
+    "revision": "7b928d828b7b0e022f929d9bd2e44165aa270148",
+    "device": "cuda",
+    "threshold": 0.99
+  },
+  "embedding": {
+    "provider": "sentence-transformers",
+    "model": "sentence-transformers/all-MiniLM-L6-v2",
+    "revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+    "device": "cpu"
+  },
+  "decision_timeout_s": 15
+}

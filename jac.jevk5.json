@@ -1,0 +1,26 @@
+{
+  "generation": {
+    "provider": "transformers",
+    "model": "Qwen/Qwen2.5-0.5B-Instruct",
+    "revision": "7ae557604adf67be50417f59c2c2f167def9a775",
+    "device": "cuda",
+    "max_new_tokens": 64
+  },
+  "decision": {
+    "provider": "jevk5",
+    "model": "jevk5-4b-v0.3-Q8_0.gguf",
+    "revision": "ec67b0bfce5119a8b11a2cdb430bb43e3fa3e82a",
+    "base_url": "http://127.0.0.1:8095",
+    "temperature": 1.22,
+    "threshold": 0.99,
+    "max_len": 8192,
+    "prompt_version": "laya-reuse-v2"
+  },
+  "embedding": {
+    "provider": "sentence-transformers",
+    "model": "sentence-transformers/all-MiniLM-L6-v2",
+    "revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+    "device": "cpu"
+  },
+  "decision_timeout_s": 15
+}

@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jac-cache"
+version = "0.1.0"
+description = "Jev As Cache: wrap existing LLM calls and skip generation on valid cache hits."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+license = {text = "MIT"}
+
+[project.urls]
+Repository = "https://github.com/Ishikawwwa/JAC"
+Issues = "https://github.com/Ishikawwwa/JAC/issues"
+
+[project.optional-dependencies]
+dev = ["ruff>=0.9"]
+embeddings = ["sentence-transformers>=3,<6"]
+laya = ["laya==0.4.2"]
+
+[project.scripts]
+jac = "jevcache.cli:main"
+jevcache = "jevcache.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]

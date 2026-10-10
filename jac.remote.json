@@ -1,0 +1,26 @@
+{
+  "generation": {
+    "model": "YOUR_REMOTE_MODEL",
+    "base_url": "https://your-provider.example/v1",
+    "api_key_env": "REMOTE_MODEL_API_KEY",
+    "timeout_s": 120
+  },
+  "decision": {
+    "provider": "jevk5-cuda",
+    "model": "alibiserikbay/JevK5",
+    "revision": "c4f7fdb3aeab5582336406e78d3bef11bf98833d",
+    "device": "cuda",
+    "graphs": true,
+    "temperature": 1.22,
+    "threshold": 0.99,
+    "max_len": 8192,
+    "max_candidates": 1
+  },
+  "embedding": {
+    "provider": "sentence-transformers",
+    "model": "sentence-transformers/all-MiniLM-L6-v2",
+    "revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+    "device": "cpu"
+  },
+  "decision_timeout_s": 1
+}

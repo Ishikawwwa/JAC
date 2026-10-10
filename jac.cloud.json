@@ -1,0 +1,22 @@
+{
+  "generation": {
+    "model": "gpt-4o-mini",
+    "base_url": "https://api.openai.com/v1",
+    "api_key_env": "OPENAI_API_KEY",
+    "timeout_s": 60
+  },
+  "decision": {
+    "provider": "jev",
+    "model": "jev-1.13.0",
+    "api_key_env": "TYPESAFE_API_KEY",
+    "timeout_s": 10
+  },
+  "embedding": {
+    "provider": "openai-compatible",
+    "model": "text-embedding-3-small",
+    "base_url": "https://api.openai.com/v1",
+    "api_key_env": "OPENAI_API_KEY",
+    "timeout_s": 30
+  },
+  "decision_timeout_s": 10
+}

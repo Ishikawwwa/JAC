@@ -1,0 +1,25 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.venv-*/
+.ruff_cache/
+.pytest_cache/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+.env
+build/
+dist/
+benchmark-results/
+# Local experiment reports stay on this machine, outside the public release.
+/results/
+/*_RESULTS.md
+/MODEL_SELECTION.md
+/PROMPT_REFINEMENT.md
+/PUBLICATION_CHECKLIST.md
+.env.*
+!.env.example
+*.gguf
+*.safetensors
+*.pem
