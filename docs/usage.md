@@ -52,6 +52,10 @@ SDK clients can use `cache.wrap_client(existing_client)`; install your own SDK.
 Generic functions should return JSON-compatible values, or supply
 `response_type=YourResponseModel` for durable typed reuse.
 
+Generation, embeddings and decisions can each use your own sync/async functions.
+See [custom model calls](custom_models.md) for `CallableEmbedder`,
+`CallableDecider`, and runnable evaluations through a Python factory.
+
 ## Enable decision-validated reuse
 
 ```python

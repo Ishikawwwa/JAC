@@ -40,6 +40,8 @@ ask = cache.wrap(existing_llm_call)
 ```
 
 Choose `retrieval="embeddings"` and supply an `embedder` for vector retrieval.
+Use `CallableEmbedder` and `CallableDecider` for your own sync/async local or remote
+functions. [Model selection and callback contracts](docs/custom_models.md).
 Local **JevK5** and **Laya** adapters are also available. Semantic decisions require
 labeled calibration observations; until then JAC uses exact caching.
 See the [quickstart](docs/usage.md) and [H100 / JevK5 setup](docs/jevk5.md).
@@ -62,11 +64,12 @@ its optimized CUDA runtime; total cache latency includes additional work.
 
 ## Try it
 
-Three runnable examples live in `examples/`; hosted and H100 configs are in
+Runnable examples live in `examples/`; hosted and H100 configs are in
 `examples/configs/`. Setup and measurement guides are in `docs/`.
 
 ```bash
 python -m jac evaluate --offline     # Token-free functionality fixtures.
+python -m jac evaluate-agents --offline  # Support, extraction and tool-informed workflows.
 python -m unittest discover -s tests -q
 ```
 

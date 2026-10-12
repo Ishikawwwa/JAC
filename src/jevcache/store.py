@@ -39,6 +39,18 @@ class Entry:
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
 
+@dataclass
+class _EmbeddingSearch:
+    """SQLite snapshot prepared before potentially slow embedding inference."""
+
+    entries: list[Entry]
+    vectors: dict[str, list[float]]
+    missing: list[Entry]
+    encoder: str
+    texts: list[str]
+    limit: int
+
+
 class SQLiteStore:
     def __init__(
         self,
@@ -194,11 +206,25 @@ class SQLiteStore:
         Missing document vectors are batched on first semantic lookup. Exact hits
         never invoke the embedder. This local linear index targets small caches.
         """
+        search = self.prepare_embedding_candidates(
+            kind=kind, scope=scope, task=task, text=text,
+            encoder_identity=embedder.cache_identity, limit=limit, eligible=eligible,
+        )
+        if search is None:
+            return []
+        return self.finish_embedding_candidates(search, embedder.embed(search.texts))
+
+    def prepare_embedding_candidates(
+        self, *, kind: str, scope: str, task: str, text: str,
+        encoder_identity: Mapping[str, Any], limit: int = 5,
+        eligible: Callable[[Entry], bool] | None = None,
+    ) -> _EmbeddingSearch | None:
+        """Read index state; callers may release their lock before inference."""
         from .models import fingerprint
         from .providers import normalized
 
         if limit <= 0:
-            return []
+            return None
         rows = self.connection.execute(
             "SELECT data FROM entries WHERE kind=? AND scope=? AND task=? "
             "AND (expires IS NULL OR expires > ?)", (kind, scope, task, self.clock())
@@ -206,8 +232,8 @@ class SQLiteStore:
         entries = [entry for row in rows if (entry := self._entry(row)) is not None
                    and (eligible is None or eligible(entry))]
         if not entries:
-            return []
-        encoder = fingerprint(embedder.cache_identity)
+            return None
+        encoder = fingerprint(encoder_identity)
         vectors, missing = {}, []
         for entry in entries:
             text_hash = fingerprint(entry.request["text"])
@@ -223,23 +249,37 @@ class SQLiteStore:
                     pass
             missing.append(entry)
         texts = [text] + [entry.request["text"] for entry in missing]
-        encoded = embedder.embed(texts)
-        if not isinstance(encoded, list) or len(encoded) != len(texts):
+        return _EmbeddingSearch(entries, vectors, missing, encoder, texts, limit)
+
+    def finish_embedding_candidates(
+        self, search: _EmbeddingSearch, encoded: Any,
+    ) -> list[Entry]:
+        """Validate and persist vectors after inference; discard changed entries."""
+        from .models import fingerprint
+        from .providers import normalized
+
+        if not isinstance(encoded, list) or len(encoded) != len(search.texts):
             raise ValueError("Wrong embedding count")
         encoded = [normalized(vector) for vector in encoded]
         query = encoded[0]
         if any(len(vector) != len(query) for vector in encoded):
             raise ValueError("Embedding dimensions differ")
+        entries = [entry for entry in search.entries if self.get(entry.key) == entry]
+        live_keys = {entry.key for entry in entries}
+        vectors = {key: vector for key, vector in search.vectors.items() if key in live_keys}
         with self.connection:
-            for entry, vector in zip(missing, encoded[1:], strict=True):
+            for entry, vector in zip(search.missing, encoded[1:], strict=True):
+                if entry.key not in live_keys:
+                    continue
                 vectors[entry.key] = vector
                 self.connection.execute("INSERT OR REPLACE INTO embeddings VALUES(?,?,?,?)",
-                    (entry.key, encoder, fingerprint(entry.request["text"]), json.dumps(vector)))
+                    (entry.key, search.encoder, fingerprint(entry.request["text"]),
+                     json.dumps(vector)))
         if any(len(vector) != len(query) for vector in vectors.values()):
             raise ValueError("Stored embedding dimensions differ; revise encoder identity")
         ranked = sorted(entries, key=lambda entry: (
             -sum(a * b for a, b in zip(query, vectors[entry.key], strict=True)), entry.key))
-        return ranked[:limit]
+        return ranked[:search.limit]
 
     def observe_reuse(self, cohort: str, *, valid_hit: bool, decision_ms: float) -> None:
         """Record a verified or labelled outcome, never a model's claimed confidence."""

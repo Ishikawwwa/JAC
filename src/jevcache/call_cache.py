@@ -101,6 +101,7 @@ class JAC:
         namespace: str = "default",
         ttl_s: float | None = 300,
         jev: ReuseDecider | None = None,
+        decider: ReuseDecider | None = None,
         decision_policy: DecisionPolicy | None = None,
         context: Context | Callable[[tuple[Any, ...], dict[str, Any]], Context] | None = None,
         validator: Callable[[Mapping[str, Any], Any], Any] | None = None,
@@ -116,6 +117,8 @@ class JAC:
             raise ValueError("Cache namespace must be a nonempty string")
         if not isinstance(enabled, bool):
             raise TypeError("enabled must be a boolean")
+        if jev is not None and decider is not None:
+            raise ValueError("Use either decider or jev, not both")
         if mode not in ("cache_first", "parallel"):
             raise ValueError("mode must be 'cache_first' or 'parallel'")
         if retrieval not in ("bm25", "embeddings"):
@@ -123,7 +126,8 @@ class JAC:
         if (type(candidate_limit) is not int or not 1 <= candidate_limit <= 8):
             raise ValueError("candidate_limit must be between one and eight")
         if retrieval == "embeddings" and (
-            not callable(getattr(embedder, "embed", None))
+            not (callable(getattr(embedder, "embed", None))
+                 or callable(getattr(embedder, "aembed", None)))
             or not isinstance(getattr(embedder, "cache_identity", None), Mapping)
         ):
             raise ValueError("embeddings retrieval requires an embedder with cache_identity")
@@ -145,7 +149,7 @@ class JAC:
             raise TypeError("context must be a Context or a callable")
         self.namespace = namespace
         self.ttl_s = ttl_s
-        self.jev = jev
+        self.jev = decider if decider is not None else jev
         self.decision_policy = decision_policy or DecisionPolicy()
         self.context = context or Context(namespace)
         self.validator = validator
@@ -578,6 +582,27 @@ class JAC:
 
         return wrap_client(self, client)
 
+    async def _embedding_candidates(self, *, event_trace: Trace, **kwargs: Any) -> list[Entry]:
+        # Never hold SQLite's lock during remote calls or local model inference.
+        # Native async encoders stay on the application loop for client affinity.
+        search = await self._async_cache_io(
+            "prepare_embedding_candidates", **kwargs,
+            encoder_identity=snapshot(self.embedder.cache_identity), event_trace=event_trace,
+        )
+        if search is None:
+            return []
+        aembed = getattr(self.embedder, "aembed", None)
+        if callable(aembed) and getattr(self.embedder, "is_async", None) is not False:
+            encoded = aembed(search.texts)
+            if inspect.isawaitable(encoded):
+                encoded = await encoded
+        else:
+            future = self._submit("embedding", self.embedder.embed, search.texts)
+            encoded = await asyncio.shield(asyncio.wrap_future(future))
+        return await self._async_cache_io(
+            "finish_embedding_candidates", search, encoded, default=[], event_trace=event_trace,
+        )
+
     async def _semantic(
         self,
         call: Mapping[str, Any],
@@ -616,20 +641,20 @@ class JAC:
             except Exception:
                 return False
 
-        retrieval_io = (self._async_cache_io if self.retrieval == "embeddings"
-                        else self._decision_io)
-        candidates = await retrieval_io(
-            "embedding_candidates" if self.retrieval == "embeddings" else "candidates",
+        retrieval_kwargs = dict(
             kind="llm_answer",
             scope=context.scope,
             task=partition,
             text=shape[0],
             limit=self.candidate_limit,
             eligible=is_eligible,
-            **({"embedder": self.embedder} if self.retrieval == "embeddings" else {}),
-            default=[],
-            event_trace=trace,
         )
+        if self.retrieval == "embeddings":
+            candidates = await self._embedding_candidates(event_trace=trace, **retrieval_kwargs)
+        else:
+            candidates = await self._decision_io(
+                "candidates", **retrieval_kwargs, default=[], event_trace=trace,
+            )
         lookup_ms = (time.perf_counter() - lookup_started) * 1000
         trace.events.append(Event("retrieval_" + self.retrieval, "cache", "completed", lookup_ms))
         eligible = []
@@ -751,7 +776,9 @@ class JAC:
                 trace.decision_status = "expired_during_decision"
                 return None
             decoded = self._decode(chosen.value, response_type)
-            if await self._valid(call, decoded):
+            if await self._valid(call, decoded) and (
+                chosen.expires_at is None or chosen.expires_at > self.store.clock()
+            ):
                 return chosen
             trace.decision_status = "validation_rejected"
         return None
@@ -1114,7 +1141,9 @@ class JAC:
                     except Exception:
                         trace.decision_status = "unknown_response_codec"
                     else:
-                        if await self._valid(call, decoded):
+                        if await self._valid(call, decoded) and (
+                            exact.expires_at is None or exact.expires_at > self.store.clock()
+                        ):
                             trace.path = "full_hit"
                             trace.events.append(
                                 Event(
@@ -1146,11 +1175,14 @@ class JAC:
                         )
                     if shared is not None:
                         try:
-                            decoded = self._decode(shared, response_type)
+                            decoded = self._decode(shared["encoded"], response_type)
                         except Exception:
                             pass
                         else:
-                            if await self._valid(call, decoded):
+                            if await self._valid(call, decoded) and (
+                                shared["expires_at"] is None
+                                or shared["expires_at"] > self.store.clock()
+                            ):
                                 trace.path = "full_hit"
                                 trace.coalesced_nodes = 1
                                 trace.events.append(
@@ -1188,7 +1220,9 @@ class JAC:
                         event_trace=trace,
                     )
                     if owner is not None:
-                        owner.set_result(semantic.value)
+                        owner.set_result(
+                            {"encoded": semantic.value, "expires_at": semantic.expires_at}
+                        )
                     trace.path = "full_hit"
                     return self._decode(semantic.value, response_type), trace
             generation_started = time.perf_counter()
@@ -1200,12 +1234,14 @@ class JAC:
             generation_ms = (time.perf_counter() - generation_started) * 1000
             trace.events.append(Event("llm_response", "llm", "generated", generation_ms))
             encoded = self._encode(response, response_type) if can_cache else None
+            shared_expiry = None
             if encoded is not None and call is not None and await self._valid(call, response):
                 shape = _semantic_request(call)
                 guard_id = fingerprint(shape[1] if shape else call)
                 partition = fingerprint({"function": identity, "guard": guard_id})
                 with self._store_lock:
                     now = self.store.clock()
+                    shared_expiry = now + self.ttl_s if self.ttl_s is not None else None
                     self._cache_io(
                         "put",
                         Entry(
@@ -1219,7 +1255,7 @@ class JAC:
                             context.policy_version,
                             self._type_id(response_type) if response_type else "auto",
                             now,
-                            now + self.ttl_s if self.ttl_s is not None else None,
+                            shared_expiry,
                             generation_ms,
                             {"semantic_identity": None},
                         ),
@@ -1228,7 +1264,10 @@ class JAC:
             elif can_cache and encoded is None:
                 trace.decision_status = "bypass_response"
             if owner is not None:
-                owner.set_result(encoded)
+                owner.set_result(
+                    {"encoded": encoded, "expires_at": shared_expiry}
+                    if encoded is not None else None
+                )
             return response, trace
         except BaseException as exc:
             trace.path = "error"

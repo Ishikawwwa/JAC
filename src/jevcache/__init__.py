@@ -1,6 +1,7 @@
 """JEVCache: minimize repeated agent work before returning a correct response."""
 
 from .call_cache import JAC
+from .callables import CallableDecider, CallableEmbedder
 from .decisions import Candidate, Decision, DecisionPolicy, JevDecider, OutcomeStats, ReuseDecider
 from .jevk5 import JevK5Decider
 from .jevk5_cuda import JevK5CudaDecider
@@ -12,6 +13,8 @@ from .telemetry import RunResult, Trace
 
 __all__ = [
     "Candidate",
+    "CallableDecider",
+    "CallableEmbedder",
     "Context",
     "Decision",
     "DecisionPolicy",
