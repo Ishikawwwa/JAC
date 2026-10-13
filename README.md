@@ -67,6 +67,10 @@ its optimized CUDA runtime; total cache latency includes additional work.
 Runnable examples live in `examples/`; hosted and H100 configs are in
 `examples/configs/`. Setup and measurement guides are in `docs/`.
 
+[Interactive presentation in Russian](docs/jac-presentation.html): how JAC works,
+model selection, integration examples, and a savings calculator. Download the HTML
+file and open it in a browser; it works offline.
+
 ```bash
 python -m jac evaluate --offline     # Token-free functionality fixtures.
 python -m jac evaluate-agents --offline  # Support, extraction and tool-informed workflows.
